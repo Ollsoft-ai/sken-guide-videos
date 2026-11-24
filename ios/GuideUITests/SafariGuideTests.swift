@@ -260,7 +260,9 @@ final class SafariGuideTests: XCTestCase {
             }
             onHome = icon.exists && icon.isHittable
         }
-        sleep(2)
+        // The web clip first shows a grey placeholder; its icon arrives a few seconds later
+        // (slow on Intel runners). The still wait is cut out in post.
+        sleep(8)
         snap("home", springboard)
         mark("end")
         notes.append("icon on home: \(onHome)")
