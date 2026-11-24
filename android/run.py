@@ -167,6 +167,21 @@ def media_duration(path):
         return max(vals) if vals else 0.0
 
 
+def swipe(x1, y1, x2, y2, ms, marks=None, name=None):
+    """Real swipe gesture; the mark carries start and end so post-processing draws its arrow."""
+    log("swipe", x1, y1, x2, y2)
+    sh(f"input swipe {x1} {y1} {x2} {y2} {ms}")
+    if marks is not None:
+        marks.append({"name": name, "t": time.time() - 0.15 - ms / 1000,
+                      "x": round(x1 / SCREEN[0], 4), "y": round(y1 / SCREEN[1], 4),
+                      "x2": round(x2 / SCREEN[0], 4), "y2": round(y2 / SCREEN[1], 4)})
+        log("MARK", name)
+
+
+def launcher_in_front():
+    return "launcher" in sh("dumpsys window | grep -m1 mCurrentFocus")
+
+
 class Recorder:
     """Emulator-side recording (`adb emu screenrecord`): it sees the composited screen,
     including Android's camera permission dialog, which `adb shell screenrecord` leaves
@@ -438,12 +453,17 @@ def clip_install():
     dbg.shot("after-install")
     note += extra + f" / result: {done} after {time.time() - t_install:.1f}s"
     time.sleep(1.2)
-    sh("input keyevent KEYCODE_HOME")
-    time.sleep(2.5)
+    w, h = SCREEN
+    swipe(w // 2, h - 12, w // 2, int(h * 0.6), 160, m, "tap_home")  # gesture-nav home swipe
+    time.sleep(2.0)
+    if not launcher_in_front():
+        note += " / home swipe did not reach the launcher, used HOME key"
+        sh("input keyevent KEYCODE_HOME")
+        time.sleep(2.0)
     nodes = dump("home")
     icon = find(nodes, r"^Olingo Sken$")
     if not icon:
-        sh("input swipe 900 1300 150 1300 250")  # next home page
+        swipe(int(w * 0.85), int(h * 0.45), int(w * 0.15), int(h * 0.45), 250, m, "tap_page")  # next home page
         time.sleep(1.8)
         icon = find(dump("home-2"), r"^Olingo Sken$")
     note += " / icon on home: " + ("yes" if icon else "NOT FOUND")

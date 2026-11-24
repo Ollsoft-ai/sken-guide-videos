@@ -62,20 +62,29 @@ def markers(tmp, i, tap, ow, oh):
     arrow pointing at it from the screen-centre side (white outlines for contrast)."""
     import math
     from PIL import Image, ImageDraw
-    x, y = tap["x"] * ow, tap["y"] * oh
     r = ow * 0.09
+    x = min(max(tap["x"] * ow, r + 4), ow - r - 4)   # keep the whole ring on screen
+    y = min(max(tap["y"] * oh, r + 4), oh - r - 4)
     ring = Image.new("RGBA", (ow, oh), (0, 0, 0, 0))
     d = ImageDraw.Draw(ring)
     d.ellipse([x - r - 3, y - r - 3, x + r + 3, y + r + 3], fill=(235, 20, 20, 70), outline=WHITE, width=3)
     d.ellipse([x - r, y - r, x + r, y + r], outline=RED, width=max(7, round(ow * 0.021)))
     d.ellipse([x - r * 0.16, y - r * 0.16, x + r * 0.16, y + r * 0.16], fill=RED)
-    vx, vy = ow / 2 - x, oh / 2 - y
-    if math.hypot(vx, vy) < ow * 0.12:
-        vx, vy = 1.0, 0.7
-    n = math.hypot(vx, vy)
-    ux, uy = vx / n, vy / n                     # from the target towards the screen centre
     length, head, hw, sw = ow * 0.24, ow * 0.08, ow * 0.06, ow * 0.022
-    tipx, tipy = x + ux * (r + 6), y + uy * (r + 6)
+    if "x2" in tap:                             # swipe: arrow from the touch point along the swipe
+        ex, ey = tap["x2"] * ow, tap["y2"] * oh
+        vx, vy = x - ex, y - ey
+        n = math.hypot(vx, vy)
+        ux, uy = vx / n, vy / n                 # from the tip back towards the start
+        tipx, tipy = ex, ey
+        length = max(head * 1.5, n - r - 4)
+    else:
+        vx, vy = ow / 2 - x, oh / 2 - y
+        if math.hypot(vx, vy) < ow * 0.12:
+            vx, vy = 1.0, 0.7
+        n = math.hypot(vx, vy)
+        ux, uy = vx / n, vy / n                 # from the target towards the screen centre
+        tipx, tipy = x + ux * (r + 6), y + uy * (r + 6)
     px, py = -uy, ux                            # perpendicular
 
     def pt(along, side):
