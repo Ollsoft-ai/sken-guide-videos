@@ -1,0 +1,81 @@
+{
+  "clip": "android-chrome-install",
+  "status": "ok",
+  "mp4": "android-chrome-install.mp4",
+  "webm": "android-chrome-install.webm",
+  "size_mp4": 470781,
+  "size_webm": 382057,
+  "duration": 9.9,
+  "width": 540,
+  "height": 1200,
+  "note": "menu item: Přidat na plochu / dialog: Webové zobrazení | Otevřít domovskou stránku | Připojení je zabezpečené | app.olingomedical.com | Nová karta | Zobrazit 1 kartu | Přizpůsobit a ovládat Google Chrome | Instalovat aplikaci | Olingo Sken | Olingo Sken | app.olingomedical.com | Zrušit | Instalovat / launcher confirm: Přidat na plochu / result: shortcut after 9.6s / icon on home: yes",
+  "run": "https://github.com/Ollsoft-ai/sken-guide-videos/actions/runs/45454652827",
+  "segments": [
+    [
+      3.583,
+      5.25
+    ],
+    [
+      10.8,
+      11.65
+    ],
+    [
+      12.55,
+      13.15
+    ],
+    [
+      17.4,
+      18.65
+    ],
+    [
+      22.35,
+      22.75
+    ],
+    [
+      24.4,
+      25.65
+    ],
+    [
+      28.8,
+      30.45
+    ],
+    [
+      31.15,
+      33.3
+    ]
+  ],
+  "taps": [
+    {
+      "t": 4.3,
+      "x": 0.9417,
+      "y": 0.0871,
+      "snapped": true
+    },
+    {
+      "t": 11.2,
+      "x": 0.6167,
+      "y": 0.7729,
+      "snapped": true
+    },
+    {
+      "t": 17.8,
+      "x": 0.8287,
+      "y": 0.6308,
+      "snapped": true
+    },
+    {
+      "t": 24.8,
+      "x": 0.7537,
+      "y": 0.93,
+      "snapped": true
+    },
+    {
+      "t": 29.2,
+      "x": 0.5,
+      "y": 0.995,
+      "x2": 0.5,
+      "y2": 0.6,
+      "snapped": true
+    }
+  ]
+}
