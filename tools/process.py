@@ -17,6 +17,8 @@ WIDTH = 540
 MAX_BYTES = 2_000_000
 MAX_SECONDS = 10.0
 FPS = 30
+# Playback speed of the finished clip by prefix (owner 2026-11-24: real-time iPhone clips feel too fast, 0.75x).
+PLAYBACK = {"ios-": 0.75}
 TAP_DELAY = 0.1   # used when a tap cannot be snapped to the screen's reaction
 PAD = 4.0         # recorders emit no frames for a still screen: clone the last frame
 MIN_CUT = 0.5     # never cut less than this out of a still period
@@ -189,7 +191,7 @@ def compress(segments, frz, taps, b):
     return [[round(a, 4), round(b, 4)] for a, b in out if b > a]
 
 
-def graph(segs, taps, ow, oh):
+def graph(segs, taps, ow, oh, speed=1.0):
     """Cut (trim+concat, real time), then draw the arrow and ring of each tap on the cut timeline.
     Inputs: 0 = recording, then per tap 2i+1 = ring, 2i+2 = arrow (looped stills)."""
     chains = [f"[0:v]setpts=PTS-STARTPTS,fps={FPS},tpad=stop_mode=clone:stop_duration={PAD},"
@@ -205,7 +207,8 @@ def graph(segs, taps, ow, oh):
         chains.append(f"[a{i}][{2 * i + 1}:v]overlay=0:0:shortest=1:"
                       f"enable='between(t,{ot:.3f},{min(ot + CIRCLE_SHOW, seg_end(t['t'], segs)):.3f})'[r{i}]")
         last = f"r{i}"
-    chains.append(f"[{last}]format=yuv420p[out]")
+    slow = f"setpts=PTS/{speed},fps={FPS}," if speed != 1.0 else ""
+    chains.append(f"[{last}]{slow}format=yuv420p[out]")
     return ";".join(chains)
 
 
@@ -238,7 +241,8 @@ def render(spec, raw_dir, out_dir, tmp):
     for i, t in enumerate(taps):
         rp, ap = markers(tmp, f"{spec['clip']}-{i}", t, WIDTH, oh)
         inputs += ["-loop", "1", "-i", rp, "-loop", "1", "-i", ap]
-    fg = graph(segs, taps, WIDTH, oh)
+    speed = next((v for k, v in PLAYBACK.items() if spec["clip"].startswith(k)), 1.0)
+    fg = graph(segs, taps, WIDTH, oh, speed)
     name = spec["clip"]
     mp4 = os.path.join(out_dir, name + ".mp4")
     for crf in (23, 26, 29, 32, 35):
