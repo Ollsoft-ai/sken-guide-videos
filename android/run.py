@@ -6,6 +6,7 @@ Writes OUT/raw/<clip>.raw.mp4 + <clip>.json (spec for tools/process.py) and
 OUT/debug/<clip>/NN-*.png|xml (screenshots + UI dumps of every step).
 """
 import glob
+import json
 import os
 import re
 import subprocess
@@ -80,8 +81,10 @@ class Debug:
     def __init__(self):
         self.dir, self.n = DBG, 0
 
+    attempt = 1
+
     def clip(self, name):
-        self.dir, self.n = os.path.join(DBG, name), 0
+        self.dir, self.n = os.path.join(DBG, name if self.attempt == 1 else f"{name}-try{self.attempt}"), 0
         os.makedirs(self.dir, exist_ok=True)
 
     def shot(self, tag, xml=None):
@@ -324,11 +327,18 @@ def reset_chrome():
     time.sleep(1)
 
 
-def open_page(timeout=120):
-    sh(f"am start -a android.intent.action.VIEW -d {URL} -n {CHROME}/com.google.android.apps.chrome.Main")
-    end, i = time.time() + timeout, 0
+def open_page(timeout=150):
+    """Open the URL in Chrome and wait for the page's button. Chrome sometimes crashes or never
+    exposes the web content to accessibility: re-open the URL after 25 s without the button."""
+    launch = f"am start -a android.intent.action.VIEW -d {URL} -n {CHROME}/com.google.android.apps.chrome.Main"
+    sh(launch)
+    end, i, opened = time.time() + timeout, 0, time.time()
     while time.time() < end:
         i += 1
+        if time.time() - opened > 25:
+            log("page not ready after 25 s: re-opening the URL")
+            sh(launch)
+            opened = time.time()
         nodes = dump(f"settle-{i}" if i <= 25 else None)
         t = find(nodes, TARGET)
         if t:
@@ -481,15 +491,21 @@ def main():
         if not fn:
             log("unknown clip", c)
             continue
-        try:
-            fn()
-        except Exception:
-            traceback.print_exc()
+        spec_path = os.path.join(RAW, f"android-chrome-{c}.json")
+        for attempt in (1, 2):  # the emulator is flaky (Chrome crashes, a11y tree missing): one retry
+            dbg.attempt = attempt
             try:
-                rec.stop()
+                fn()
             except Exception:
-                pass
-            fail(f"android-chrome-{c}", "exception: " + traceback.format_exc()[-300:])
+                traceback.print_exc()
+                try:
+                    rec.stop()
+                except Exception:
+                    pass
+                fail(f"android-chrome-{c}", "exception: " + traceback.format_exc()[-300:])
+            if json.load(open(spec_path)).get("status") == "ok":
+                break
+            log("attempt", attempt, "of", c, "failed")
     sh(f"am force-stop {CHROME}")
 
 

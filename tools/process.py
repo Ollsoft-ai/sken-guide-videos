@@ -23,7 +23,7 @@ MIN_CUT = 0.5     # never cut less than this out of a still period
 SNAP_LEAD = 0.4   # touch drawn this long before the detected screen reaction
 ARROW_BEFORE = 0.75  # red arrow appears this long before a tap ...
 ARROW_AFTER = 0.15   # ... and stays this long after it
-CIRCLE_SHOW = 0.5    # red circle at the tap point (never across a cut)
+CIRCLE_SHOW = 0.4    # red circle at the tap point; gone as the screen reacts (never across a cut)
 RED = (235, 20, 20, 255)
 WHITE = (255, 255, 255, 255)
 # Still-screen budgets (seconds), loosest first; the first that fits MAX_SECONDS wins.
