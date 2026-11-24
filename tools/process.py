@@ -146,7 +146,8 @@ def snap_taps(taps, frz):
     ends = sorted(e for _, e in frz if e < 1e9)
     out = []
     for t in taps:
-        cand = [e for e in ends if t["t"] - 0.6 <= e <= t["t"] + 3.5]
+        # XCUITest marks carry t2 (when tap() returned): the touch lies between t and t2
+        cand = [e for e in ends if t["t"] - 0.6 <= e <= max(t["t"] + 3.5, t.get("t2", 0) + 1.0)]
         # freezedetect notices a soft fade-in late: put the touch a bit before the detected change
         out.append({**t, "t": round(cand[0] - SNAP_LEAD, 3) if cand else t["t"] + TAP_DELAY, "snapped": bool(cand)})
     return out
@@ -206,7 +207,19 @@ def render(spec, raw_dir, out_dir, tmp):
     raw = os.path.join(raw_dir, spec["raw"])
     w, h, dur = probe(raw)
     frz = freezes(raw)
-    taps = snap_taps(spec.get("taps", []), frz)
+    taps = spec.get("taps", [])
+    if "taps" in spec and spec.get("marks"):   # rebuild from the raw marks (keeps t2 / x2,y2)
+        taps = []
+        for m in spec["marks"]:
+            if m["name"].startswith("tap") and "x" in m:
+                off = m["t"] - m["rel"]
+                tap = {"t": m["rel"], "x": m["x"], "y": m["y"]}
+                if "t2" in m:
+                    tap["t2"] = round(m["t2"] - off, 3)
+                if "x2" in m:
+                    tap.update(x2=m["x2"], y2=m["y2"])
+                taps.append(tap)
+    taps = snap_taps(taps, frz)
     base = [[a, min(z, dur + PAD - 0.1)] for a, z in spec["segments"]]
     for b in BUDGETS:
         segs = compress(base, frz, taps, b)

@@ -38,7 +38,9 @@ def build(clip, raw, marks, t0, status="ok", note="", overlay_taps=False):
     segments.append([cur, end])
     spec["segments"] = [[round(a, 3), round(b, 3)] for a, b in segments if b > a]
     if overlay_taps:
-        spec["taps"] = [{"t": rel(m["t"]), "x": m["x"], "y": m["y"]} for m in taps if "x" in m]
+        spec["taps"] = [{"t": rel(m["t"]), "x": m["x"], "y": m["y"],
+                         **({"t2": rel(m["t2"])} if "t2" in m else {}),
+                         **({"x2": m["x2"], "y2": m["y2"]} if "x2" in m else {})} for m in taps if "x" in m]
     return spec
 
 

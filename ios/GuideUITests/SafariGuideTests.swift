@@ -37,6 +37,13 @@ final class SafariGuideTests: XCTestCase {
         log("MARK \(name)")
     }
 
+    /// Tap with a timed mark; "t2" is when XCUITest returned (the touch happened in between).
+    func tapMarked(_ name: String, _ el: XCUIElement) {
+        mark(name, el)
+        el.tap()
+        marks[marks.count - 1]["t2"] = Date().timeIntervalSince1970
+    }
+
     func snap(_ name: String, _ app: XCUIApplication? = nil) {
         step += 1
         let base = String(format: "%02d-", step) + name
@@ -144,8 +151,7 @@ final class SafariGuideTests: XCTestCase {
         let clip = "ios-safari-camera"
         guard let btn = pageButton() else { save(clip, "failed", "page did not load"); return }
         snap("before", safari)
-        mark("tap_open", btn)
-        btn.tap()
+        tapMarked("tap_open", btn)
         var alert: XCUIElement? = nil
         let end = Date().addingTimeInterval(12)
         while Date() < end && alert == nil {
@@ -172,8 +178,7 @@ final class SafariGuideTests: XCTestCase {
         sleep(1)
         let allow = a.buttons.matching(NSPredicate(format: "label IN %@", ["Povolit", "Allow"])).firstMatch
         let target = allow.exists ? allow : a.buttons.element(boundBy: max(0, a.buttons.count - 1))
-        mark("tap_allow", target)
-        target.tap()
+        tapMarked("tap_allow", target)
         sleep(3)
         snap("after-allow", safari)
         mark("end")
@@ -192,22 +197,19 @@ final class SafariGuideTests: XCTestCase {
             return
         }
         notes.append("menu \(describe(menu))")
-        mark("tap_menu", menu)
-        menu.tap()
+        tapMarked("tap_menu", menu)
         sleep(1)
         snap("menu-open", safari)
         var a2hs = find(a2hsNames, in: [safari], timeout: 1.5)
         if a2hs == nil, let share = find(["Sdílet", "Sdílet…", "Share", "Share…"], in: [safari], timeout: 3) {
             notes.append("share \(describe(share))")
-            mark("tap_share", share)
-            share.tap()
+            tapMarked("tap_share", share)
             sleep(2)
             snap("share-sheet", safari)
             a2hs = find(a2hsNames, in: [safari, springboard], timeout: 1)
             if a2hs == nil, let more = find(["Zobrazit další", "Zobrazit více", "Show More"], in: [safari], timeout: 2) {
                 notes.append("more \(describe(more))")
-                mark("tap_more", more)
-                more.tap()
+                tapMarked("tap_more", more)
                 sleep(1)
                 snap("share-more", safari)
                 a2hs = find(a2hsNames, in: [safari, springboard], timeout: 3)
@@ -229,8 +231,7 @@ final class SafariGuideTests: XCTestCase {
             return
         }
         notes.append("a2hs \(describe(add))")
-        mark("tap_a2hs", add)
-        add.tap()
+        tapMarked("tap_a2hs", add)
         sleep(2)
         snap("a2hs-sheet", safari)
         guard let confirm = find(["Přidat", "Add"], in: [safari], timeout: 6) else {
@@ -242,8 +243,7 @@ final class SafariGuideTests: XCTestCase {
         while !confirm.isEnabled && Date() < ready { usleep(300_000) }
         sleep(1)
         snap("a2hs-ready", safari)
-        mark("tap_add", confirm)
-        confirm.tap()
+        tapMarked("tap_add", confirm)
         let icon = springboard.icons["Olingo Sken"]
         var onHome = icon.waitForExistence(timeout: 8) && icon.isHittable
         if !onHome {
