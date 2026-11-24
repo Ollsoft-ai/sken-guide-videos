@@ -237,7 +237,11 @@ final class SafariGuideTests: XCTestCase {
             save(clip, "failed", notes.joined(separator: "; ") + "; 'Přidat' button not found")
             return
         }
+        // The sheet loads the icon and name first; „Přidat“ stays disabled until then.
+        let ready = Date().addingTimeInterval(20)
+        while !confirm.isEnabled && Date() < ready { usleep(300_000) }
         sleep(1)
+        snap("a2hs-ready", safari)
         mark("tap_add", confirm)
         confirm.tap()
         let icon = springboard.icons["Olingo Sken"]

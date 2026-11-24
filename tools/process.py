@@ -20,9 +20,10 @@ FPS = 30
 TAP_DELAY = 0.1   # used when a tap cannot be snapped to the screen's reaction
 PAD = 4.0         # recorders emit no frames for a still screen: clone the last frame
 MIN_CUT = 0.5     # never cut less than this out of a still period
+SNAP_LEAD = 0.4   # touch drawn this long before the detected screen reaction
 ARROW_BEFORE = 0.75  # red arrow appears this long before a tap ...
 ARROW_AFTER = 0.15   # ... and stays this long after it
-CIRCLE_SHOW = 0.55   # red circle at the tap point
+CIRCLE_SHOW = 0.5    # red circle at the tap point (never across a cut)
 RED = (235, 20, 20, 255)
 WHITE = (255, 255, 255, 255)
 # Still-screen budgets (seconds), loosest first; the first that fits MAX_SECONDS wins.
@@ -62,18 +63,18 @@ def markers(tmp, i, tap, ow, oh):
     import math
     from PIL import Image, ImageDraw
     x, y = tap["x"] * ow, tap["y"] * oh
-    r = ow * 0.085
+    r = ow * 0.09
     ring = Image.new("RGBA", (ow, oh), (0, 0, 0, 0))
     d = ImageDraw.Draw(ring)
     d.ellipse([x - r - 3, y - r - 3, x + r + 3, y + r + 3], fill=(235, 20, 20, 70), outline=WHITE, width=3)
-    d.ellipse([x - r, y - r, x + r, y + r], outline=RED, width=max(6, round(ow * 0.016)))
+    d.ellipse([x - r, y - r, x + r, y + r], outline=RED, width=max(7, round(ow * 0.021)))
     d.ellipse([x - r * 0.16, y - r * 0.16, x + r * 0.16, y + r * 0.16], fill=RED)
     vx, vy = ow / 2 - x, oh / 2 - y
     if math.hypot(vx, vy) < ow * 0.12:
         vx, vy = 1.0, 0.7
     n = math.hypot(vx, vy)
     ux, uy = vx / n, vy / n                     # from the target towards the screen centre
-    length, head, hw, sw = ow * 0.2, ow * 0.065, ow * 0.045, ow * 0.016
+    length, head, hw, sw = ow * 0.24, ow * 0.08, ow * 0.06, ow * 0.022
     tipx, tipy = x + ux * (r + 6), y + uy * (r + 6)
     px, py = -uy, ux                            # perpendicular
 
@@ -88,6 +89,16 @@ def markers(tmp, i, tap, ow, oh):
     ring.save(rp)
     arrow.save(ap)
     return rp, ap
+
+
+def seg_end(t, segs):
+    """End (cut-clip time) of the segment that shows raw time t."""
+    acc = 0.0
+    for a, b in segs:
+        if t <= b:
+            return acc + b - a
+        acc += b - a
+    return acc
 
 
 def out_time(t, segs):
@@ -127,7 +138,8 @@ def snap_taps(taps, frz):
     out = []
     for t in taps:
         cand = [e for e in ends if t["t"] - 0.6 <= e <= t["t"] + 3.5]
-        out.append({**t, "t": round(cand[0] - 0.15, 3) if cand else t["t"] + TAP_DELAY, "snapped": bool(cand)})
+        # freezedetect notices a soft fade-in late: put the touch a bit before the detected change
+        out.append({**t, "t": round(cand[0] - SNAP_LEAD, 3) if cand else t["t"] + TAP_DELAY, "snapped": bool(cand)})
     return out
 
 
@@ -175,7 +187,7 @@ def graph(segs, taps, ow, oh):
         chains.append(f"[{last}][{2 * i + 2}:v]overlay=0:0:shortest=1:"
                       f"enable='between(t,{max(0, ot - ARROW_BEFORE):.3f},{ot + ARROW_AFTER:.3f})'[a{i}]")
         chains.append(f"[a{i}][{2 * i + 1}:v]overlay=0:0:shortest=1:"
-                      f"enable='between(t,{ot:.3f},{ot + CIRCLE_SHOW:.3f})'[r{i}]")
+                      f"enable='between(t,{ot:.3f},{min(ot + CIRCLE_SHOW, seg_end(t['t'], segs)):.3f})'[r{i}]")
         last = f"r{i}"
     chains.append(f"[{last}]format=yuv420p[out]")
     return ";".join(chains)
