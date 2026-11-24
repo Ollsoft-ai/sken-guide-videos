@@ -7,7 +7,7 @@ on:
         default: "camera,install"
       api:
         description: "Android API level of the google_apis_playstore x86_64 image"
-        default: "36"
+        default: "37.0"
       publish:
         description: "Commit the rendered clips to clips/"
         type: boolean
@@ -49,7 +49,7 @@ jobs:
           ram-size: 4096M
           disk-size: 6000M
           disable-animations: false
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back virtualscene -camera-front none
           script: python3 android/run.py
       - name: Render clips
         if: always()

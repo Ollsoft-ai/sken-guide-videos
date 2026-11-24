@@ -127,6 +127,10 @@ def find(nodes, pat, fields=("text", "desc"), pkg=None, not_pkg=None):
     return hits[0] if hits else None
 
 
+def open_xml():
+    return adb("exec-out", "cat /sdcard/ui.xml").stdout
+
+
 def wait_for(pat, timeout=10, tag=None, **kw):
     end = time.time() + timeout
     while True:
@@ -134,40 +138,76 @@ def wait_for(pat, timeout=10, tag=None, **kw):
         hit = find(nodes, pat, **kw)
         if hit or time.time() > end:
             if tag:
-                dbg.shot(tag)
+                dbg.shot(tag, open_xml())
             return hit
         time.sleep(0.3)
 
 
-def tap(target, hold=220):
+SCREEN = [1080, 2400]
+
+
+def tap(target, marks=None, name=None):
+    """Tap; with marks, log a timed mark carrying the normalized position (tap circle in post)."""
     x, y = target.center if isinstance(target, Node) else target
     log("tap", x, y, target.label() if isinstance(target, Node) else "")
-    sh(f"input swipe {x} {y} {x} {y} {hold}")
+    if marks is not None:
+        marks.add(name, x=round(x / SCREEN[0], 4), y=round(y / SCREEN[1], 4))
+    sh(f"input tap {x} {y}")
+
+
+def media_duration(path):
+    d = run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path]).stdout.strip()
+    try:
+        return float(d)
+    except ValueError:  # streamed webm without a duration header: take the last packet time
+        pts = run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts_time",
+                   "-of", "csv=p=0", path], timeout=120).stdout.split()
+        vals = [float(v) for v in pts if re.match(r"^[0-9.]+$", v)]
+        return max(vals) if vals else 0.0
 
 
 class Recorder:
+    """Emulator-side recording (`adb emu screenrecord`): it sees the composited screen,
+    including Android's camera permission dialog, which `adb shell screenrecord` leaves
+    out (the dialog is missing from device recordings). Device screenrecord is the fallback."""
+
     def start(self, clip):
-        self.clip, self.emu = clip, False
-        self.raw = os.path.join(RAW, clip + ".raw.mp4")
-        sh("rm -f /sdcard/rec.mp4")
-        self.p = subprocess.Popen(["adb", "shell", "screenrecord", "--bit-rate", "8000000", "/sdcard/rec.mp4"],
-                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        self.t0 = time.time() + 0.3
-        time.sleep(2.0)
-        if self.p.poll() is not None:
-            log("screenrecord died:", self.p.stdout.read().decode(errors="replace")[:300], "-> emulator recorder")
-            self.emu = True
-            self.raw = os.path.join(RAW, clip + ".raw.webm")
-            adb("emu", "screenrecord", "start", "--time-limit", "170", self.raw)
-            self.t0 = time.time() + 0.3
-            time.sleep(2.0)
+        self.clip, self.emu = clip, True
+        self.raw = os.path.join(RAW, clip + ".raw.webm")
+        if os.path.exists(self.raw):
+            os.remove(self.raw)
+        self.t_start = time.time()
+        r = adb("emu", "screenrecord", "start", "--time-limit", "170", "--fps", "30", "--bit-rate", "8000000", self.raw)
+        out = (r.stdout + r.stderr).strip()
+        log("emu screenrecord:", out[:200])
+        if "KO" in out or r.returncode:
+            self.t_start = time.time()
+            r = adb("emu", "screenrecord", "start", self.raw)
+            log("emu screenrecord (plain):", (r.stdout + r.stderr).strip()[:200])
+        time.sleep(2.5)
+        if not os.path.exists(self.raw):
+            log("emulator recorder wrote no file -> adb shell screenrecord")
+            adb("emu", "screenrecord", "stop")
+            self.emu = False
+            self.raw = os.path.join(RAW, clip + ".raw.mp4")
+            sh("rm -f /sdcard/rec.mp4")
+            self.p = subprocess.Popen(["adb", "shell", "screenrecord", "--bit-rate", "8000000", "/sdcard/rec.mp4"],
+                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            self.t_start = time.time() + 1.0
+            time.sleep(2.5)
         log("recording", self.clip, "emu" if self.emu else "screenrecord")
 
     def stop(self):
         t_stop = time.time()
         if self.emu:
-            adb("emu", "screenrecord", "stop")
-            time.sleep(3)
+            log("emu stop:", (adb("emu", "screenrecord", "stop").stdout or "").strip()[:200])
+            last = -1
+            for _ in range(40):
+                size = os.path.getsize(self.raw) if os.path.exists(self.raw) else -1
+                if size == last and size > 0:
+                    break
+                last = size
+                time.sleep(1)
         else:
             sh("kill -2 $(pidof screenrecord)")
             try:
@@ -176,9 +216,12 @@ class Recorder:
                 self.p.kill()
             time.sleep(1.5)
             adb("pull", "/sdcard/rec.mp4", self.raw, timeout=120)
+        self.t0 = self.t_start
         if os.path.exists(self.raw):
-            d = run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", self.raw]).stdout.strip()
-            log(f"raw {self.raw}: {os.path.getsize(self.raw)} B, duration {d}, wall {t_stop - self.t0:.2f}")
+            dur = media_duration(self.raw)
+            log(f"raw {self.raw}: {os.path.getsize(self.raw)} B, duration {dur:.2f}, wall since start {t_stop - self.t_start:.2f}")
+            if self.emu and dur > 1:
+                self.t0 = t_stop - dur  # constant frame rate: the last frame is the stop time
         return os.path.basename(self.raw)
 
 
@@ -193,7 +236,7 @@ class Marks(list):
 
 def finish(clip, marks, status, note):
     raw = rec.stop()
-    spec = clipspec.build(clip, raw, marks, rec.t0, status=status, note=note)
+    spec = clipspec.build(clip, raw, marks, rec.t0, status=status, note=note, overlay_taps=True)
     clipspec.write(os.path.join(RAW, clip + ".json"), spec)
     log("RESULT", clip, status, note)
 
@@ -232,7 +275,10 @@ def setup():
         "SDK", sh("getprop ro.build.version.sdk"), sh("getprop ro.build.type"))
     log("chrome:", sh(f"dumpsys package {CHROME} | grep -m1 versionName"))
     set_locale()
-    sh("settings put system show_touches 1")
+    sh("settings put system show_touches 0")  # tap circles are drawn in post, same as iOS
+    m = re.search(r"(\d+)x(\d+)", sh("wm size"))
+    if m:
+        SCREEN[:] = [int(m.group(1)), int(m.group(2))]
     sh("svc power stayon true")
     sh("settings put system screen_off_timeout 1800000")
     sh("input keyevent KEYCODE_WAKEUP")
@@ -242,7 +288,7 @@ def setup():
     for extra in ("-e command enter", "-e command clock -e hhmm 0941",
                   "-e command battery -e level 100 -e plugged false",
                   "-e command network -e wifi show -e level 4 -e fully true",
-                  "-e command network -e mobile show -e level 4 -e datatype none -e fully true",
+                  "-e command network -e mobile hide",
                   "-e command notifications -e visible false"):
         sh(f"am broadcast -a com.android.systemui.demo {extra}")
     # Chrome reads this flags file on user builds only when it is the debug app.
@@ -308,26 +354,23 @@ def clip_camera():
     btn = find(dump("before"), TARGET) or btn
     rec.start(clip)
     m = Marks()
-    m.add("tap_open")
-    tap(btn)
-    allow = wait_for(r"při používání|while visiting|while using", timeout=15, tag="prompt", pkg=CHROME)
+    tap(btn, m, "tap_open")
+    allow = wait_for(r"^Povolit při|^Allow (on every visit|while visiting)", timeout=15, tag="prompt", pkg=CHROME)
     allow = allow or find(dump("prompt-2"), r"^(Povolit|Allow)", pkg=CHROME)
     if not allow:
         m.add("end")
         return finish(clip, m, "failed", "no Chrome camera prompt within 15 s")
     prompt_texts = " | ".join(n.label() for n in dump() if n.label() and n.pkg == CHROME and n.y1 > 0)[:400]
     time.sleep(0.9)
-    m.add("tap_allow")
-    tap(allow)
+    tap(allow, m, "tap_allow")
     os_allow = wait_for(r"permission_allow_foreground_only_button|Při používání aplikace|While using the app",
                         timeout=5, tag="os-prompt", fields=("rid", "text"))
     note = "site prompt: " + prompt_texts
     if os_allow:
         time.sleep(0.9)
-        m.add("tap_os_allow")
-        tap(os_allow)
+        tap(os_allow, m, "tap_os_allow")
         note += " / OS prompt: " + os_allow.label()
-    time.sleep(3.2)
+    time.sleep(2.8)
     dbg.shot("live")
     m.add("end")
     finish(clip, m, "ok", note)
@@ -350,8 +393,7 @@ def clip_install():
         return fail(clip, "Chrome menu button not found")
     rec.start(clip)
     m = Marks()
-    m.add("tap_menu")
-    tap(menu)
+    tap(menu, m, "tap_menu")
     item = wait_for(INSTALL_ITEM, timeout=6, tag="menu", pkg=CHROME)
     if not item:
         sh("input swipe 700 1800 700 700 300")
@@ -361,8 +403,7 @@ def clip_install():
         return finish(clip, m, "failed", "install item not in Chrome menu")
     note = "menu item: " + item.label()
     time.sleep(0.8)
-    m.add("tap_item")
-    tap(item)
+    tap(item, m, "tap_item")
     btn = wait_for(r"^(Instalovat|Nainstalovat|Install|Přidat|Add)$", timeout=10, tag="dialog")
     dialog_texts = " | ".join(n.label() for n in dump() if n.label())[:400]
     note += " / dialog: " + dialog_texts
@@ -370,9 +411,8 @@ def clip_install():
         m.add("end")
         return finish(clip, m, "failed", note + " / no install button")
     time.sleep(1.0)
-    m.add("tap_install")
     t_install = time.time()
-    tap(btn)
+    tap(btn, m, "tap_install")
     done, extra = None, ""
     end = time.time() + 60
     while time.time() < end:
@@ -385,8 +425,7 @@ def clip_install():
                        fields=("text",), not_pkg=CHROME)
         if confirm:
             dbg.shot("launcher-confirm")
-            m.add("tap_confirm")
-            tap(confirm)
+            tap(confirm, m, "tap_confirm")
             extra = " / launcher confirm: " + confirm.label()
             time.sleep(2)
             done = "shortcut"
