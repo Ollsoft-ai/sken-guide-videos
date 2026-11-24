@@ -20,6 +20,7 @@ FPS = 30
 TAP_DELAY = 0.1   # used when a tap cannot be snapped to the screen's reaction
 PAD = 4.0         # recorders emit no frames for a still screen: clone the last frame
 MIN_CUT = 0.5     # never cut less than this out of a still period
+MIN_PIECE = 0.25  # motion slivers shorter than this between two cuts are dropped
 SNAP_LEAD = 0.4   # touch drawn this long before the detected screen reaction
 ARROW_BEFORE = 0.75  # red arrow appears this long before a tap ...
 ARROW_AFTER = 0.15   # ... and stays this long after it
@@ -147,7 +148,7 @@ def snap_taps(taps, frz):
     out = []
     for t in taps:
         # XCUITest marks carry t2 (when tap() returned): the touch lies between t and t2
-        cand = [e for e in ends if t["t"] - 0.6 <= e <= max(t["t"] + 3.5, t.get("t2", 0) + 1.0)]
+        cand = [e for e in ends if t["t"] - 0.6 <= e <= max(t["t"] + 3.5, t.get("t2", 0) + 1.5)]
         # freezedetect notices a soft fade-in late: put the touch a bit before the detected change
         out.append({**t, "t": round(cand[0] - SNAP_LEAD, 3) if cand else t["t"] + TAP_DELAY, "snapped": bool(cand)})
     return out
@@ -173,14 +174,19 @@ def compress(segments, frz, taps, b):
                 head = b["lead"] - tail
             if e - s - head - tail >= MIN_CUT:  # tiny cuts inside an animation would stutter
                 cuts.append((s + head, e - tail))
-        cur = a
+        cur, pieces = a, []
         for cs, ce in sorted(cuts):
-            if cs - cur > 0.05:
-                out.append([round(cur, 3), round(cs, 3)])
+            if cs > cur:
+                pieces.append([cur, cs])
             cur = max(cur, ce)
-        if z - cur > 0.05:
-            out.append([round(cur, 3), round(z, 3)])
-    return out
+        if z > cur:
+            pieces.append([cur, z])
+        # a sliver of motion between two cuts only flickers: drop it (never the first or last)
+        pieces = [p for i, p in enumerate(pieces) if i in (0, len(pieces) - 1) or p[1] - p[0] >= MIN_PIECE]
+        out += pieces
+    # snap to the 30 fps frame grid so the cut timeline (and the markers on it) is exact
+    out = [[round(a * FPS) / FPS, round(b * FPS) / FPS] for a, b in out]
+    return [[round(a, 4), round(b, 4)] for a, b in out if b > a]
 
 
 def graph(segs, taps, ow, oh):
@@ -189,7 +195,7 @@ def graph(segs, taps, ow, oh):
     chains = [f"[0:v]setpts=PTS-STARTPTS,fps={FPS},tpad=stop_mode=clone:stop_duration={PAD},"
               f"scale={ow}:{oh}:flags=lanczos,split={len(segs)}" + "".join(f"[s{i}]" for i in range(len(segs)))]
     for i, (a, b) in enumerate(segs):
-        chains.append(f"[s{i}]trim=start={a}:end={b},setpts=PTS-STARTPTS[t{i}]")
+        chains.append(f"[s{i}]trim=start_frame={round(a * FPS)}:end_frame={round(b * FPS)},setpts=PTS-STARTPTS[t{i}]")
     chains.append("".join(f"[t{i}]" for i in range(len(segs))) + f"concat=n={len(segs)}:v=1:a=0[c]")
     last = "c"
     for i, t in enumerate(taps):
