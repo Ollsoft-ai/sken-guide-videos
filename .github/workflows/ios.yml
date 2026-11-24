@@ -8,7 +8,7 @@ on:
       runner:
         description: "GitHub-hosted macOS runner"
         type: choice
-        options: [macos-26, xcode-27, macos-15]
+        options: [macos-26, macos-26-intel, macos-15-intel, xcode-27, macos-15]
         default: macos-26
       device:
         description: "Simulator device type"
@@ -25,7 +25,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ios
+  group: ios-${{ inputs.runner }}
   cancel-in-progress: false
 
 jobs:
