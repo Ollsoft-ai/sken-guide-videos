@@ -1,0 +1,88 @@
+name: android
+on:
+  workflow_dispatch:
+    inputs:
+      clips:
+        description: "Comma list: camera,install"
+        default: "camera,install"
+      api:
+        description: "Android API level of the google_apis_playstore x86_64 image"
+        default: "36"
+      publish:
+        description: "Commit the rendered clips to clips/"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GUIDE_CLIPS: ${{ inputs.clips }}
+      GUIDE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - name: Record on the emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ inputs.api }}
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_7
+          cores: 4
+          ram-size: 4096M
+          disk-size: 6000M
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none
+          script: python3 android/run.py
+      - name: Render clips
+        if: always()
+        run: python3 tools/process.py out/raw out/clips
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: android-raw
+          path: out/raw
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: android-debug
+          path: out/debug
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: android-clips
+          path: out/clips
+          retention-days: 30
+
+  publish:
+    needs: record
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-clips
+          path: out/clips
+      - run: tools/publish.sh out/clips

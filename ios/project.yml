@@ -1,0 +1,46 @@
+# XcodeGen spec: `xcodegen generate` in ios/ -> SkenGuide.xcodeproj (not committed).
+# GuideHost is an empty app only because a UI-test bundle needs a target app;
+# the tests drive Safari and SpringBoard by bundle id.
+name: SkenGuide
+options:
+  bundleIdPrefix: ai.ollsoft.skenguide
+  deploymentTarget:
+    iOS: "18.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    GENERATE_INFOPLIST_FILE: YES
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGNING_REQUIRED: NO
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  GuideHost:
+    type: application
+    platform: iOS
+    sources: [GuideHost]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.ollsoft.skenguide.host
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+  GuideUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [GuideUITests]
+    dependencies:
+      - target: GuideHost
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.ollsoft.skenguide.uitests
+        TEST_TARGET_NAME: GuideHost
+schemes:
+  GuideUITests:
+    build:
+      targets:
+        GuideHost: all
+        GuideUITests: [test]
+    test:
+      config: Debug
+      targets: [GuideUITests]
