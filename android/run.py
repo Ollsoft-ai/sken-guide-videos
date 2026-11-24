@@ -289,7 +289,7 @@ def setup():
     sh("settings put global sysui_demo_allowed 1")
     for extra in ("-e command enter", "-e command clock -e hhmm 0941",
                   "-e command battery -e level 100 -e plugged false",
-                  "-e command network -e wifi show -e mobile show -e level 4 -e fully true -e datatype lte",
+                  "-e command network -e wifi show -e mobile hide -e level 4 -e fully true",
                   "-e command notifications -e visible false"):
         sh(f"am broadcast -a com.android.systemui.demo {extra}")
     # Chrome reads this flags file on user builds only when it is the debug app.
@@ -437,9 +437,6 @@ def clip_install():
         time.sleep(1)
     dbg.shot("after-install")
     note += extra + f" / result: {done} after {time.time() - t_install:.1f}s"
-    if time.time() - t_install > 4:
-        m.append({"name": "cut_from", "t": t_install + 1.8})  # drop the wait while Chrome installs
-        m.add("cut_to")
     time.sleep(1.2)
     sh("input keyevent KEYCODE_HOME")
     time.sleep(2.5)
