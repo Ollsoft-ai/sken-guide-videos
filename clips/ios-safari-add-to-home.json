@@ -1,0 +1,128 @@
+{
+  "clip": "ios-safari-add-to-home",
+  "status": "ok",
+  "mp4": "ios-safari-add-to-home.mp4",
+  "webm": "ios-safari-add-to-home.webm",
+  "size_mp4": 380611,
+  "size_webm": 309128,
+  "duration": 8.2,
+  "width": 540,
+  "height": 1174,
+  "note": "runner icon removed via 'Odstranit z plochy'; menu 'Více' [MoreMenuButton]; share 'Sdílet' [ShareButton]; more 'Zobrazit další' [cellTitleLabel]; a2hs 'Přidat na plochu' [activityImageView]; icon on home: true",
+  "run": "https://github.com/Ollsoft-ai/sken-guide-videos/actions/runs/45462463455",
+  "segments": [
+    [
+      309.5,
+      310.3
+    ],
+    [
+      310.85,
+      311.0
+    ],
+    [
+      322.1,
+      323.1
+    ],
+    [
+      327.45,
+      327.8
+    ],
+    [
+      333.05,
+      333.1
+    ],
+    [
+      333.75,
+      334.3
+    ],
+    [
+      335.05,
+      335.4
+    ],
+    [
+      335.95,
+      336.0
+    ],
+    [
+      336.95,
+      337.0
+    ],
+    [
+      344.55,
+      344.6
+    ],
+    [
+      345.65,
+      346.2
+    ],
+    [
+      365.5,
+      366.7
+    ],
+    [
+      382.15,
+      382.2
+    ],
+    [
+      389.75,
+      389.8
+    ],
+    [
+      393.25,
+      393.3
+    ],
+    [
+      394.65,
+      395.6
+    ],
+    [
+      421.9,
+      422.7
+    ],
+    [
+      423.95,
+      424.0
+    ],
+    [
+      424.65,
+      426.2
+    ]
+  ],
+  "taps": [
+    {
+      "t": 309.9,
+      "x": 0.8557213930348259,
+      "y": 0.9336384439359268,
+      "t2": 310.84,
+      "snapped": true
+    },
+    {
+      "t": 322.5,
+      "x": 0.6243781094527363,
+      "y": 0.5743707093821511,
+      "t2": 323.795,
+      "snapped": true
+    },
+    {
+      "t": 340.93100000000004,
+      "x": 0.8291873963515755,
+      "y": 0.9262013729977117,
+      "t2": 343.497,
+      "snapped": false
+    },
+    {
+      "t": 365.9,
+      "x": 0.11940298507462686,
+      "y": 0.7513348588863464,
+      "t2": 366.449,
+      "snapped": true
+    },
+    {
+      "t": 422.3,
+      "x": 0.861111111111111,
+      "y": 0.12585812356979406,
+      "t2": 424.434,
+      "snapped": true
+    }
+  ]
+}
