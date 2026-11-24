@@ -125,14 +125,19 @@ final class SafariGuideTests: XCTestCase {
             sleep(1)
             swipes += 1
         }
-        icon.press(forDuration: 1.5)
-        snap("runner-menu", springboard)
         let remove = springboard.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] 'Odstranit' OR label BEGINSWITH[c] 'Remove'")).firstMatch
-        guard remove.waitForExistence(timeout: 4) else { XCUIDevice.shared.press(.home); return "no remove item" }
-        remove.tap()
         let safe = NSPredicate(format: "(label CONTAINS[c] 'plochy' OR label CONTAINS[c] 'knihovn' OR label CONTAINS[c] 'Home Screen' OR label CONTAINS[c] 'App Library') AND NOT (label BEGINSWITH[c] 'Smazat' OR label BEGINSWITH[c] 'Delete')")
         let fromHome = springboard.buttons.matching(safe).firstMatch
-        guard fromHome.waitForExistence(timeout: 4) else {
+        for _ in 0..<2 {  // slow (Intel) simulators sometimes drop the first menu tap
+            icon.press(forDuration: 1.5)
+            snap("runner-menu", springboard)
+            guard remove.waitForExistence(timeout: 6) else { XCUIDevice.shared.press(.home); continue }
+            remove.tap()
+            if fromHome.waitForExistence(timeout: 10) { break }
+            XCUIDevice.shared.press(.home)
+            sleep(1)
+        }
+        guard fromHome.exists else {
             snap("runner-alert", springboard)
             let cancel = springboard.buttons.matching(NSPredicate(format: "label IN %@", ["Zrušit", "Cancel"])).firstMatch
             if cancel.exists { cancel.tap() }
@@ -207,7 +212,7 @@ final class SafariGuideTests: XCTestCase {
             sleep(2)
             snap("share-sheet", safari)
             a2hs = find(a2hsNames, in: [safari, springboard], timeout: 1)
-            if a2hs == nil, let more = find(["Zobrazit další", "Zobrazit více", "Show More"], in: [safari], timeout: 2) {
+            if a2hs == nil, let more = find(["Zobrazit další", "Zobrazit více", "Show More"], in: [safari], timeout: 15) {
                 notes.append("more \(describe(more))")
                 tapMarked("tap_more", more)
                 sleep(1)

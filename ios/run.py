@@ -132,7 +132,7 @@ def record(udid, key):
     r = sh(["xcodebuild", "test-without-building", "-project", PROJECT, "-scheme", "GuideUITests",
             "-destination", f"id={udid}", "-derivedDataPath", DD,
             f"-only-testing:GuideUITests/SafariGuideTests/{test}"],
-           check=False, timeout=900, env=env, logfile=logfile)
+           check=False, timeout=600, env=env, logfile=logfile)
     time.sleep(0.5)
     rec.stop()
     for line in open(logfile, errors="replace"):
@@ -162,13 +162,19 @@ def main():
         if key not in TESTS:
             log("unknown clip", key)
             continue
-        try:
-            record(udid, key)
-        except Exception as e:  # keep the other clips going
-            log("ERROR", key, e)
-            clip = TESTS[key][0]
-            clipspec.write(os.path.join(RAW, clip + ".json"),
-                           {"clip": clip, "status": "failed", "segments": [], "note": f"exception: {e}"})
+        clip = TESTS[key][0]
+        for attempt in (1, 2):  # the simulator occasionally stalls XCUITest: one retry
+            try:
+                record(udid, key)
+            except Exception as e:  # keep the other clips going
+                log("ERROR", key, e)
+                subprocess.run(["pkill", "-INT", "-x", "simctl"])  # stop a dangling recorder
+                clipspec.write(os.path.join(RAW, clip + ".json"),
+                               {"clip": clip, "status": "failed", "segments": [], "note": f"exception: {e}"})
+            status = json.load(open(os.path.join(RAW, clip + ".json"))).get("status")
+            if status in ("ok", "not-possible"):
+                break
+            log("attempt", attempt, "of", key, "ended", status)
 
 
 if __name__ == "__main__":
