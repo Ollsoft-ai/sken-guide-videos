@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import traceback
+import unicodedata
 import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -54,10 +55,15 @@ def sh(cmd, **kw):
     return adb("shell", cmd, **kw).stdout.strip()
 
 
+def norm(s):
+    """NFC + plain spaces: the app uses no-break spaces (e.g. „z\u00a0počítače“)."""
+    return re.sub(r"[\u00a0\u202f\u2007]", " ", unicodedata.normalize("NFC", s or ""))
+
+
 class Node:
     def __init__(self, e):
-        self.text = e.get("text") or ""
-        self.desc = e.get("content-desc") or ""
+        self.text = norm(e.get("text"))
+        self.desc = norm(e.get("content-desc"))
         self.rid = e.get("resource-id") or ""
         self.cls = e.get("class") or ""
         self.pkg = e.get("package") or ""
@@ -235,7 +241,8 @@ def setup():
     sh("settings put global sysui_demo_allowed 1")
     for extra in ("-e command enter", "-e command clock -e hhmm 0941",
                   "-e command battery -e level 100 -e plugged false",
-                  "-e command network -e wifi show -e level 4 -e mobile show -e level 4 -e datatype none",
+                  "-e command network -e wifi show -e level 4 -e fully true",
+                  "-e command network -e mobile show -e level 4 -e datatype none -e fully true",
                   "-e command notifications -e visible false"):
         sh(f"am broadcast -a com.android.systemui.demo {extra}")
     # Chrome reads this flags file on user builds only when it is the debug app.
