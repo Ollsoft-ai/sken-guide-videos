@@ -105,6 +105,39 @@ final class SafariGuideTests: XCTestCase {
 
     func describe(_ e: XCUIElement) -> String { "'\(e.label)' [\(e.identifier)]" }
 
+    /// The XCUITest runner app sits on the home screen right where the new web clip would land.
+    /// Move it off the home screen (kept in the App Library; never delete it, it runs this test).
+    func hideRunnerIcon() -> String {
+        XCUIDevice.shared.press(.home)
+        sleep(1)
+        let icon = springboard.icons.matching(NSPredicate(format: "label BEGINSWITH 'GuideUITests' OR label BEGINSWITH 'GuideHost'")).firstMatch
+        if !icon.exists { return "runner icon not on home screen" }
+        var swipes = 0
+        while !icon.isHittable && swipes < 4 {
+            springboard.swipeLeft()
+            sleep(1)
+            swipes += 1
+        }
+        icon.press(forDuration: 1.5)
+        snap("runner-menu", springboard)
+        let remove = springboard.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] 'Odstranit' OR label BEGINSWITH[c] 'Remove'")).firstMatch
+        guard remove.waitForExistence(timeout: 4) else { XCUIDevice.shared.press(.home); return "no remove item" }
+        remove.tap()
+        let safe = NSPredicate(format: "(label CONTAINS[c] 'plochy' OR label CONTAINS[c] 'knihovn' OR label CONTAINS[c] 'Home Screen' OR label CONTAINS[c] 'App Library') AND NOT (label BEGINSWITH[c] 'Smazat' OR label BEGINSWITH[c] 'Delete')")
+        let fromHome = springboard.buttons.matching(safe).firstMatch
+        guard fromHome.waitForExistence(timeout: 4) else {
+            snap("runner-alert", springboard)
+            let cancel = springboard.buttons.matching(NSPredicate(format: "label IN %@", ["Zrušit", "Cancel"])).firstMatch
+            if cancel.exists { cancel.tap() }
+            return "no remove-from-home button"
+        }
+        let label = fromHome.label
+        fromHome.tap()
+        sleep(1)
+        snap("runner-hidden", springboard)
+        return "runner icon removed via '\(label)'"
+    }
+
     // MARK: - clips
 
     func testCamera() {
@@ -150,9 +183,9 @@ final class SafariGuideTests: XCTestCase {
     func testAddToHome() {
         let clip = "ios-safari-add-to-home"
         let a2hsNames = ["Přidat na plochu", "Přidat na plochu…", "Add to Home Screen"]
+        var notes: [String] = [hideRunnerIcon()]
         guard pageButton() != nil else { save(clip, "failed", "page did not load"); return }
         snap("before", safari)
-        var notes: [String] = []
         guard let menu = menuButton() else {
             snap("no-menu", safari)
             save(clip, "failed", "Safari share/menu button not found")
@@ -170,7 +203,15 @@ final class SafariGuideTests: XCTestCase {
             share.tap()
             sleep(2)
             snap("share-sheet", safari)
-            a2hs = find(a2hsNames, in: [safari, springboard], timeout: 3)
+            a2hs = find(a2hsNames, in: [safari, springboard], timeout: 1)
+            if a2hs == nil, let more = find(["Zobrazit další", "Zobrazit více", "Show More"], in: [safari], timeout: 2) {
+                notes.append("more \(describe(more))")
+                mark("tap_more", more)
+                more.tap()
+                sleep(1)
+                snap("share-more", safari)
+                a2hs = find(a2hsNames, in: [safari, springboard], timeout: 3)
+            }
             var scrolls = 0
             while a2hs == nil && scrolls < 2 {
                 scrolls += 1

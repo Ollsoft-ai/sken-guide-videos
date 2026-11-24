@@ -150,9 +150,10 @@ def tap(target, marks=None, name=None):
     """Tap; with marks, log a timed mark carrying the normalized position (tap circle in post)."""
     x, y = target.center if isinstance(target, Node) else target
     log("tap", x, y, target.label() if isinstance(target, Node) else "")
+    sh(f"input tap {x} {y}")  # `input` is a JVM tool: ~1 s start-up, the tap lands at the end
     if marks is not None:
-        marks.add(name, x=round(x / SCREEN[0], 4), y=round(y / SCREEN[1], 4))
-    sh(f"input tap {x} {y}")
+        marks.append({"name": name, "t": time.time() - 0.15, "x": round(x / SCREEN[0], 4), "y": round(y / SCREEN[1], 4)})
+        log("MARK", name)
 
 
 def media_duration(path):
@@ -236,6 +237,7 @@ class Marks(list):
 
 def finish(clip, marks, status, note):
     raw = rec.stop()
+    open(os.path.join(dbg.dir, "logcat.txt"), "w").write(adb("logcat", "-d", "-t", "3000", timeout=60).stdout)
     spec = clipspec.build(clip, raw, marks, rec.t0, status=status, note=note, overlay_taps=True)
     clipspec.write(os.path.join(RAW, clip + ".json"), spec)
     log("RESULT", clip, status, note)
@@ -287,8 +289,7 @@ def setup():
     sh("settings put global sysui_demo_allowed 1")
     for extra in ("-e command enter", "-e command clock -e hhmm 0941",
                   "-e command battery -e level 100 -e plugged false",
-                  "-e command network -e wifi show -e level 4 -e fully true",
-                  "-e command network -e mobile hide",
+                  "-e command network -e wifi show -e mobile show -e level 4 -e fully true -e datatype lte",
                   "-e command notifications -e visible false"):
         sh(f"am broadcast -a com.android.systemui.demo {extra}")
     # Chrome reads this flags file on user builds only when it is the debug app.

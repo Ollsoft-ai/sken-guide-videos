@@ -74,7 +74,7 @@ jobs:
           name: ios-raw
           path: out/raw
       - name: Install ffmpeg
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg python3-pil >/dev/null
       - name: Render clips
         run: python3 tools/process.py out/raw out/clips
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

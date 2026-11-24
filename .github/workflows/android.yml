@@ -8,6 +8,11 @@ on:
       api:
         description: "Android API level of the google_apis_playstore x86_64 image"
         default: "37.0"
+      gpu:
+        description: "Emulator -gpu mode"
+        type: choice
+        options: [swiftshader_indirect, swangle_indirect, guest]
+        default: swiftshader_indirect
       publish:
         description: "Commit the rendered clips to clips/"
         type: boolean
@@ -37,7 +42,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Install ffmpeg
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg python3-pil >/dev/null
       - name: Record on the emulator
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -49,7 +54,7 @@ jobs:
           ram-size: 4096M
           disk-size: 6000M
           disable-animations: false
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back virtualscene -camera-front none
+          emulator-options: -no-window -gpu ${{ inputs.gpu }} -no-snapshot -noaudio -no-boot-anim -camera-back virtualscene -camera-front none
           script: python3 android/run.py
       - name: Render clips
         if: always()
