@@ -1,0 +1,67 @@
+{
+  "clip": "android-chrome-camera",
+  "status": "ok",
+  "mp4": "android-chrome-camera.mp4",
+  "webm": "android-chrome-camera.webm",
+  "size_mp4": 154573,
+  "size_webm": 162693,
+  "duration": 7.4,
+  "width": 540,
+  "height": 1200,
+  "note": "site prompt: Webové zobrazení | Otevřít domovskou stránku | Připojení je zabezpečené | app.olingomedical.com | Nová karta | Zobrazit 1 kartu | Přizpůsobit a ovládat Google Chrome | Webová stránka app.olingomedical.com chce použít vaši kameru | Povolit při návštěvách tohoto webu | Tentokrát povolit | Nikdy nepovolovat / OS prompt: Při používání aplikace",
+  "run": "https://github.com/Ollsoft-ai/sken-guide-videos/actions/runs/45451948103",
+  "segments": [
+    [
+      1.628,
+      1.828
+    ],
+    [
+      4.6,
+      5.9
+    ],
+    [
+      11.9,
+      13.45
+    ],
+    [
+      14.35,
+      14.65
+    ],
+    [
+      15.75,
+      16.05
+    ],
+    [
+      18.65,
+      18.95
+    ],
+    [
+      20.65,
+      21.3
+    ],
+    [
+      22.3,
+      25.1
+    ]
+  ],
+  "taps": [
+    {
+      "t": 5.0,
+      "x": 0.5,
+      "y": 0.6854,
+      "snapped": true
+    },
+    {
+      "t": 12.3,
+      "x": 0.5,
+      "y": 0.5296,
+      "snapped": true
+    },
+    {
+      "t": 22.7,
+      "x": 0.5,
+      "y": 0.5283,
+      "snapped": true
+    }
+  ]
+}
